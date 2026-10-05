@@ -1,0 +1,18 @@
+{
+  "name": "apuracao2026",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Painel não oficial de apuração das eleições presidenciais de 2026 (dados oficiais do TSE)",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "engines": {
+    "node": ">=20.19"
+  },
+  "devDependencies": {
+    "vite": "^8.3.2"
+  }
+}
