@@ -17,6 +17,7 @@
   <button type="button" data-go="map" aria-current="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg><span>Mapa</span></button>
   <button type="button" data-go="states" aria-current="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Estados</span></button>
   <button type="button" data-go="abroad" aria-current="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg><span>Exterior</span></button>
+  <button type="button" data-go="deputado" aria-current="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18a9 9 0 0 1 18 0"/><path d="M7 18a5 5 0 0 1 10 0"/><circle cx="12" cy="18" r="0.6"/><path d="M3 21h18"/></svg><span>Deputado</span></button>
 </nav>
 <div class="content">
 <header class="top glass" id="top">
@@ -29,16 +30,21 @@
     <svg class="flagdeco" viewBox="0 0 230 80" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><polygon points="115,0 230,40 115,80 0,40" fill="#FFDF00"/><circle cx="115" cy="40" r="25" fill="#002776"/><path d="M92 36 Q115 29 138 41" stroke="#fff" stroke-width="5" fill="none"/></svg>
   </div>
   <div class="fbar" id="fbar">
-    <div class="seg" role="group" aria-label="Turno">
+    <div class="seg" id="cargoSeg" role="group" aria-label="Cargo">
+      <button id="cPres" data-cargo="pres" aria-pressed="true" type="button">Presidente</button>
+      <button id="cGov" data-cargo="gov" aria-pressed="false" type="button">Governador</button>
+      <button id="cSen" data-cargo="sen" aria-pressed="false" type="button">Senador</button>
+    </div>
+    <div class="seg" id="turnoSeg" role="group" aria-label="Turno">
       <button id="t1" aria-pressed="true" type="button">1º turno<small>4 de outubro</small></button>
       <button id="t2" aria-pressed="false" type="button">2º turno<small>25 de outubro</small></button>
     </div>
     <div class="grp" role="group" aria-label="Filtros geográficos, do maior para o menor">
       <label class="f" for="fReg">Região<select id="fReg"></select></label>
       <label class="f" for="fUf">Estado<select id="fUf"></select></label>
-      <label class="f" for="fMun">Município<select id="fMun" disabled></select></label>
-      <label class="f" for="fZon">Zona<select id="fZon" disabled></select></label>
-      <label class="f" for="fSec">Seção (urna)<select id="fSec" disabled></select></label>
+      <label class="f munlab" for="fMun">Município<select id="fMun" disabled></select></label>
+      <label class="f munlab" for="fZon">Zona<select id="fZon" disabled></select></label>
+      <label class="f munlab" for="fSec">Seção (urna)<select id="fSec" disabled></select></label>
       <button class="btn ghost" id="fClear" type="button">Limpar</button>
     </div>
     <span class="sp"></span>
@@ -64,7 +70,10 @@
 
   <section class="panel glass tri head" id="sumPanel" data-page="home"><div class="skel">Carregando dados do TSE…</div></section>
 
+  <div id="depRoot" data-page="deputado" hidden></div>
+
   <div id="body" hidden>
+    <section class="panel glass" id="natPanel" hidden></section>
     <div class="notice" id="urnaNote" role="status" data-page="home"></div>
 
     <section class="panel glass tri" id="duelPanel" data-page="home">
@@ -122,7 +131,8 @@
   </div>
 
   <footer>
-    <span>Fonte: arquivos JSON de divulgação do TSE (cargo Presidente, eleição federal; 1º turno = 6257, 2º turno = 6258). Os arquivos são recalculados pelo TSE à medida que as seções são totalizadas.</span>
+    <span>Fonte: arquivos JSON de divulgação do TSE (Presidente: eleição federal, 1º turno = 6257 e 2º turno = 6258; Governador, Senador e Deputados: eleição estadual, código lido do próprio TSE). Os arquivos são recalculados pelo TSE à medida que as seções são totalizadas.</span>
+    <span>Deputados: eleitos calculados pelo painel (quociente eleitoral, quociente partidário e sobras) quando o TSE ainda não os marcou; a classificação por espectro político é editorial e pode ser ajustada em src/data/partidos.js.</span>
     <span>Horários no fuso de Brasília. O painel consulta o TSE a cada 15 segundos, dentro do limite de requisições por IP.</span>
     <span>Zona e seção (urna): lidas do boletim de urna (BU) de cada seção, publicado pelo TSE em arquivo binário e decodificado no navegador.</span>
     <span>Mapa dos estados: pacote @svg-maps/brazil (CC BY 4.0). Mapa das cidades: malhas do IBGE, baixadas ao usar o mapa por cidade. Mapa-múndi: Natural Earth via world-atlas (domínio público); cada posto consular foi associado ao seu país.</span>
