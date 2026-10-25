@@ -102,9 +102,16 @@
     <section class="panel glass" id="mapPanel" data-page="map">
       <div class="phead">
         <h2>Mapa · quem lidera</h2>
-        <div class="seg sm" role="group" aria-label="Nível do mapa">
-          <button type="button" data-mm="uf" aria-pressed="true">Estados</button>
-          <button type="button" data-mm="mun" aria-pressed="false">Cidades</button>
+        <div class="pctl">
+          <label class="switch" for="urnasSw" id="urnasWrap">
+            <input type="checkbox" id="urnasSw" role="switch">
+            <span class="trk" aria-hidden="true"></span>
+            <span>Urnas apuradas<small>% por estado no mapa</small></span>
+          </label>
+          <div class="seg sm" role="group" aria-label="Nível do mapa">
+            <button type="button" data-mm="uf" aria-pressed="true">Estados</button>
+            <button type="button" data-mm="mun" aria-pressed="false">Cidades</button>
+          </div>
         </div>
       </div>
       <div class="msel" id="msel"></div>

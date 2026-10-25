@@ -17,6 +17,11 @@ vite.config.js             configuração do Vite
 vercel.json                configuração de deploy e cache
 ```
 
+## Recursos
+
+- **Urnas apuradas no mapa:** o interruptor "Urnas apuradas" (cabeçalho do mapa) mostra a % de seções totalizadas de cada estado. Cabe dentro dos estados grandes; nos pequenos vira uma etiqueta na margem direita.
+- **Filtros lembrados:** turno, região, estado, município, zona, seção, candidato, página, modo de exibição e interruptores ficam salvos no navegador (`localStorage`, chave `tse26_state_v1`). Ao atualizar a página, puxar para baixo no celular, fechar e reabrir, o painel volta como estava. O botão "Limpar" zera os filtros; um `#página` na URL tem prioridade sobre a página salva.
+
 ## Cargos
 
 - **Presidente**: como sempre (1º e 2º turno, zona e seção).

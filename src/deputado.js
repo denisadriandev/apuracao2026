@@ -387,12 +387,15 @@ export function createDeputado(ctx){
   document.addEventListener('click',e=>{
     const root=document.getElementById('depRoot'); if(!root||!root.contains(e.target)) return;
     const g=s=>e.target.closest(s); let x;
-    if(x=g('[data-dkind]')){ if(D.kind!==x.dataset.dkind){ D.kind=x.dataset.dkind; D.diag=null; render(); if(!D.data[D.kind]) ctx.requestRefresh(); } return; }
-    if(x=g('[data-dview]')){ D.view=x.dataset.dview; render(); window.scrollTo({top:0,behavior:'smooth'}); return; }
+    if(x=g('[data-dkind]')){ if(D.kind!==x.dataset.dkind){ D.kind=x.dataset.dkind; D.diag=null; if(ctx.onPrefs) ctx.onPrefs(); render(); if(!D.data[D.kind]) ctx.requestRefresh(); } return; }
+    if(x=g('[data-dview]')){ D.view=x.dataset.dview; if(ctx.onPrefs) ctx.onPrefs(); render(); window.scrollTo({top:0,behavior:'smooth'}); return; }
     if(x=g('[data-dmore]')){ const k=x.dataset.dmore; D.lim[k]+=k==='band'?20:k==='fora'?25:60; render(); return; }
     if(x=g('th[data-dk]')){ const k=x.dataset.dk; D.sort=D.sort.k===k?{k,d:-D.sort.d}:{k,d:(k==='label'||k==='faixaN')?1:-1}; render(); return; }
     if(g('#depCdSave')){ ctx.estCdSave(document.getElementById('depCd').value.trim()); location.reload(); }
   });
 
-  return {render,refresh,status,hasData:()=>!!D.data[D.kind]};
+  /* preferências que o painel lembra entre visitas */
+  const getPrefs=()=>({kind:D.kind,view:D.view});
+  const setPrefs=o=>{ if(!o||typeof o!=='object') return; if(o.kind==='fed'||o.kind==='est') D.kind=o.kind; if(['painel','tabela','eleitos'].includes(o.view)) D.view=o.view; };
+  return {render,refresh,status,getPrefs,setPrefs,hasData:()=>!!D.data[D.kind]};
 }

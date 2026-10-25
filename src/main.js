@@ -64,7 +64,7 @@ const url=(turno,uf)=>{const cd=eleCd(turno);return `${BASE()}/${AMB}/${CICLO}/$
 const photo=(turno,c)=>`${BASE()}/${AMB}/${CICLO}/${eleCd(turno)}/fotos/${S.cargo==='pres'?'br':S.scope}/${c.sq}.jpeg`;
 
 /* ---------- estado ---------- */
-const S={cargo:'pres',turno:1,scope:'br',region:'all',page:'home',mapMode:'uf',autoCity:{},timeProg:null,mun:null,zon:null,sec:null,zoneProg:null,cand:null,view:'nom',cx:'tempo',rk:{lvl:'uf',cand:null,metric:'pct',dir:-1,lim:25},cityProg:null,auto:true,err:null,busy:false,next:0,sort:{k:'name',d:1},gen:0};
+const S={cargo:'pres',turno:1,scope:'br',region:'all',page:'home',mapMode:'uf',autoCity:{},timeProg:null,mun:null,zon:null,sec:null,zoneProg:null,cand:null,view:'nom',cx:'tempo',rk:{lvl:'uf',cand:null,metric:'pct',dir:-1,lim:25},cityProg:null,auto:true,showSec:false,err:null,busy:false,next:0,sort:{k:'name',d:1},gen:0};
 /* dados guardados por cargo; S.data e S.missing sempre apontam para o cargo atual */
 const STORE={pres:{data:{1:null,2:null},missing:{1:false,2:false}},gov:{data:{1:null,2:null},missing:{1:false,2:false}},sen:{data:{1:null,2:null},missing:{1:false,2:false}}};
 Object.defineProperty(S,'data',{get(){return STORE[S.cargo].data}});
@@ -72,7 +72,7 @@ Object.defineProperty(S,'missing',{get(){return STORE[S.cargo].missing}});
 let DEP=null;
 DEP=createDeputado({BASE,AMB,CICLO,N,P,esc,num,title,UFNAME,UF2REG,REGION,MAP,S,
   estCd:async t=>(await loadEst())[t],estCdSaved:()=>ls.get('tse26_cd_est'),estCdSave:v=>ls.set('tse26_cd_est',v),
-  requestRefresh:()=>DEP.refresh().then(()=>render())});
+  requestRefresh:()=>DEP.refresh().then(()=>render()),onPrefs:()=>saveState()});
 
 /* ---------- leitura dos arquivos ---------- */
 async function getJSON(u){
@@ -479,6 +479,7 @@ function renderNat(d){
     <div class="legend-note">As cores são dos partidos (os dois primeiros dígitos do número do candidato). Clique num cartão para abrir o estado; o filtro de partido destaca os estados em que ele lidera.</div>`;
 }
 function render(){
+  saveState();
   updateBrand();
   if(S.page==='deputado'){
     applyPage(); syncFilters();
@@ -749,6 +750,7 @@ function rkCityUFs(lvl){
 }
 function renderRank(sm,d){ const el=$('#rkv'); if(!el.dataset.init||el.dataset.t!==String(S.turno)){ el.dataset.init=1; el.dataset.t=S.turno; } paintRank(); }
 function paintRank(){
+  saveState();
   const d=S.data[S.turno]; const el=$('#rkv'); if(!d||!d.br||S.page!=='home') return;
   if(natMode()){ el.innerHTML=''; return; }
   const pres=S.cargo==='pres';
@@ -867,7 +869,9 @@ async function loadGeo(uf){
 }
 function renderMap(d){
   document.querySelectorAll('[data-mm]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.mm===S.mapMode));
-  if(S.mapMode==='mun'&&S.scope!=='br'&&UFCODE[S.scope]) return renderCityMap(d);
+  const cityView=S.mapMode==='mun'&&S.scope!=='br'&&!!UFCODE[S.scope];
+  $('#urnasWrap').hidden=cityView; $('#urnasSw').checked=S.showSec;     /* o valor é por estado: some na visão de cidades */
+  if(cityView) return renderCityMap(d);
   renderStatesMap(d);
   if(S.mapMode==='mun') $('#msel').innerHTML='<span class="hint">Escolha um estado (clique no mapa ou use o filtro) para ver as cidades dele.</span>';
 }
@@ -918,10 +922,55 @@ function renderStatesMap(d){
     mk(el.dataset.uf.toUpperCase(),cy+(showPct?-1:4));
     if(showPct) mk(el.dataset.pct,cy+10,'p');
   });
+  if(S.showSec) addUrnaPills(d);
   $('#msel').innerHTML=(!isBR()?`<span>Recorte atual: <b>${esc(scopeLabel())}</b></span> <button class="btn" type="button" data-act="clear" style="min-height:32px;padding:3px 12px">Limpar filtros</button>`:'<span class="hint">Clique num estado para filtrar todo o painel. Região, estado e município também podem ser escolhidos no topo.</span>');
   const ex=d.uf.zz,le=leaders(ex);
   const keys=Object.values(seen).sort((x,y)=>y.vap-x.vap).map(c=>`<button type="button" class="keyb" data-cand="${esc(ckey(c))}" aria-pressed="${S.cand===ckey(c)}"><span class="sw" style="background:${colorOf(c.n)}"></span>${esc(klabel(c))}</button>`);
-  $('#keys').innerHTML=keys.join('')+(le?`<button type="button" class="keyb" data-uf="zz" aria-pressed="${S.scope==='zz'}" data-tip="${esc('Exterior\n1º '+nameOf(le.a)+' '+P(le.a.pct,1))}"><span class="sw" style="background:${colorOf(le.a.n)}"></span>Exterior ${N(le.a.pct,0)}%</button>`:'')+(S.cand?`<button type="button" class="linkbtn" data-cand="">limpar filtro de candidato</button>`:'');
+  $('#keys').innerHTML=keys.join('')+(le?`<button type="button" class="keyb" data-uf="zz" aria-pressed="${S.scope==='zz'}" data-tip="${esc('Exterior\n1º '+nameOf(le.a)+' '+P(le.a.pct,1))}"><span class="sw" style="background:${colorOf(le.a.n)}"></span>Exterior ${N(le.a.pct,0)}%</button>`:'')+(S.cand?`<button type="button" class="linkbtn" data-cand="">limpar filtro de candidato</button>`:'')+(S.showSec?`<span class="ukey"><i></i>% de urnas apuradas</span>`:'');
+}
+
+/* % de urnas (seções) já apuradas, por estado. Cabe dentro do estado quando há espaço;
+   nos pequenos vai para uma etiqueta na margem direita (o DF, sem margem livre, fica logo abaixo). */
+function addUrnaPills(d){
+  const svg=document.querySelector('#map svg'); if(!svg) return;
+  const NS='http://www.w3.org/2000/svg';
+  const el=(tag,at,parent)=>{ const e=document.createElementNS(NS,tag); Object.keys(at).forEach(k=>e.setAttribute(k,at[k])); if(parent) parent.appendChild(e); return e; };
+  const [vx,vy,vw,vh]=MAP.vb.split(' ').map(Number);
+  /* o mapa encolhe em telas estreitas: a fonte cresce para manter ~7 px na tela */
+  const scale=(svg.getBoundingClientRect().width||vw)/vw, fs=Math.min(13,Math.max(8.5,7/scale)), ph=fs*1.4;
+  const wOf=txt=>Math.max(fs*3.4,txt.length*fs*0.6+fs);
+  const pill=(parent,cx,cy,txt)=>{
+    const w=wOf(txt), g=el('g',{class:'upill'},parent);
+    el('rect',{x:cx-w/2,y:cy-ph/2,width:w,height:ph,rx:ph/2},g);
+    const t=el('text',{x:cx,y:cy+fs*0.35},g); t.style.fontSize=fs+'px'; t.textContent=txt;
+  };
+  const over=el('g',{class:'ucall'},svg);          /* camada por cima de todos os estados */
+  const side=[]; let maxW=0;
+  document.querySelectorAll('#map .uf').forEach(g=>{
+    const uf=g.dataset.uf, sm=d.uf[uf]; if(!sm) return;
+    let bb; try{ bb=g.querySelector('path').getBBox(); }catch(e){ return; }
+    const cx=bb.x+bb.width/2, cy=bb.y+bb.height/2, v=P(sm.pSec,1);
+    if(bb.width>=wOf(v)+10&&bb.height>=40+ph){          /* cabe: terceira linha dentro do estado */
+      g.querySelectorAll('text').forEach(t=>t.setAttribute('y',+t.getAttribute('y')-6));
+      pill(g,cx,cy+8+ph/2,v);
+    }else if(uf==='df'){
+      const gg=el('g',{class:g.classList.contains('dim')?'dim':''},over);
+      const w=wOf('DF '+v), px=cx+8+w/2, py=cy-10-ph/2;      /* acima e à direita: longe do rótulo de Goiás */
+      el('line',{class:'ulead',x1:cx,y1:cy,x2:px-w/2,y2:py},gg);
+      pill(gg,px,py,'DF '+v);
+    }else{ const txt=uf.toUpperCase()+' '+v; maxW=Math.max(maxW,wOf(txt)); side.push({g,cx,cy,txt}); }
+  });
+  if(!side.length) return;
+  const x0=vx+vw+6;
+  svg.setAttribute('viewBox',`${vx} ${vy} ${vw+maxW+8} ${vh}`);
+  let prev=-1e9;
+  side.sort((a,b)=>a.cy-b.cy).forEach(o=>{
+    const y=Math.max(o.cy,prev+ph+1); prev=y;
+    const gg=el('g',{class:o.g.classList.contains('dim')?'dim':''},over);
+    el('line',{class:'ulead',x1:o.cx,y1:o.cy,x2:x0,y2:y},gg);
+    el('circle',{class:'udot',cx:o.cx,cy:o.cy,r:1.4},gg);
+    pill(gg,x0+wOf(o.txt)/2,y,o.txt);
+  });
 }
 
 function renderRegions(d){
@@ -1046,6 +1095,7 @@ $('#fSec').onchange=e=>setSec(e.target.value);
 $('#fClear').onclick=clearAll;
 $('#fOpen').onclick=()=>{ openY=scrollY; $('#top').classList.toggle('open'); };
 $('#fClose').onclick=()=>$('#top').classList.remove('open');
+$('#urnasSw').onchange=e=>{ S.showSec=e.target.checked; render(); };
 $('#auto').onchange=e=>{S.auto=e.target.checked; ls.set('tse26_auto',S.auto?'1':'0'); if(S.auto){S.next=Math.min(S.next||0,Date.now()+INTERVAL*1000)} tickLabel()};
 let lastNow=0;
 $('#now').onclick=()=>{ if(Date.now()-lastNow<5000) return; lastNow=Date.now(); refresh() };
@@ -1108,10 +1158,55 @@ document.addEventListener('focusin',e=>{const t=e.target.closest&&e.target.close
 document.addEventListener('focusout',()=>tip.classList.remove('on'));
 window.addEventListener('scroll',()=>tip.classList.remove('on'),{passive:true});
 
+/* ---------- filtros e interruptores lembrados neste navegador ---------- */
+/* Ao atualizar a página (inclusive puxando para baixo no celular), fechar e reabrir
+   ou voltar para a aba, o painel reabre exatamente como foi deixado. */
+const SAVE_KEY='tse26_state_v1';
+function saveState(){
+  ls.set(SAVE_KEY,JSON.stringify({cargo:S.cargo,dep:DEP?DEP.getPrefs():null,turno:S.turno,region:S.region,scope:S.scope,mun:S.mun,zon:S.zon,sec:S.sec,cand:S.cand,
+    view:S.view,cx:S.cx,mapMode:S.mapMode,page:S.page,showSec:S.showSec,sort:S.sort,
+    rk:{lvl:S.rk.lvl,cand:S.rk.cand,metric:S.rk.metric,dir:S.rk.dir}}));
+}
+function restoreState(){
+  let o=null; try{ o=JSON.parse(ls.get(SAVE_KEY)||'null'); }catch(e){}
+  if(!o||typeof o!=='object') return;
+  const id=v=>(typeof v==='string'&&/^\d{1,12}$/.test(v))?v:null;      /* códigos do TSE: só dígitos */
+  if(['pres','gov','sen'].includes(o.cargo)) S.cargo=o.cargo;
+  if((o.turno===1||o.turno===2)&&S.cargo!=='sen') S.turno=o.turno;        /* Senador só tem 1º turno */
+  if(UFS.includes(o.scope)&&!(o.scope==='zz'&&S.cargo!=='pres')) S.scope=o.scope;
+  S.region=S.scope!=='br'?(UF2REG[S.scope]||'all'):(o.region==='all'||Object.keys(REGION).includes(o.region)?o.region:'all');
+  if(S.scope!=='br'&&S.scope!=='zz'){ S.mun=id(o.mun); if(S.mun){ S.zon=id(o.zon); if(S.zon) S.sec=id(o.sec); } }
+  S.cand=id(o.cand);
+  if(o.view==='nom'||o.view==='curve') S.view=o.view;
+  if(['tempo','regiao','estado'].includes(o.cx)) S.cx=o.cx;
+  if(o.mapMode==='uf'||o.mapMode==='mun') S.mapMode=o.mapMode;
+  S.showSec=o.showSec===true;
+  if(o.sort&&['name','lead','pa','second','pb','m','sec','comp'].includes(o.sort.k)&&(o.sort.d===1||o.sort.d===-1)) S.sort={k:o.sort.k,d:o.sort.d};
+  const r=o.rk;
+  if(r&&typeof r==='object'){
+    if(['reg','uf','mun','mun-uf'].includes(r.lvl)) S.rk.lvl=r.lvl;
+    if(r.metric==='pct'||r.metric==='vap') S.rk.metric=r.metric;
+    if(r.dir===1||r.dir===-1) S.rk.dir=r.dir;
+    S.rk.cand=id(r.cand);
+  }
+  if(DEP) DEP.setPrefs(o.dep);
+  const h=(location.hash||'').slice(1);                              /* o endereço (#página) tem prioridade */
+  if(PAGES.includes(h)) S.page=h;
+  else if(PAGES.includes(o.page)){ S.page=o.page; try{ history.replaceState(null,'','#'+S.page); }catch(e){} }
+  if(S.page==='abroad'&&S.cargo!=='pres'){ S.page='home'; try{ history.replaceState(null,'','#home'); }catch(e){} }   /* mesmas regras de go() e setCargo() */
+  if(S.page==='deputado'){ if(S.scope==='zz') S.scope='br'; if(S.region==='Exterior') S.region='all'; S.mun=S.zon=S.sec=null; }
+  /* dados auxiliares que o recorte restaurado precisa */
+  if(S.scope!=='br'&&S.scope!=='zz') ensureMunCfg();
+  if(S.mun) loadCs(S.scope);
+  if(S.rk.lvl==='mun'||S.rk.lvl==='mun-uf') ensureMunCfg();
+}
+
 /* início */
 if(ls.get('tse26_auto')==='0'){S.auto=false;$('#auto').checked=false}
 if(ls.get('tse26_view')==='curve') S.view='curve';
 { const h=(location.hash||'').slice(1); if(PAGES.includes(h)) S.page=h; }
+restoreState();
+$('#urnasSw').checked=S.showSec;
 window.addEventListener('hashchange',()=>{ const h=(location.hash||'').slice(1); if(PAGES.includes(h)&&h!==S.page) go(h); });
 updateBrand();
 applyPage();
