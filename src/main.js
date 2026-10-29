@@ -2,6 +2,7 @@ import { MAP } from './data/brazil-map.js';
 import { EXT } from './data/world-map.js';
 import { partyColor } from './data/partidos.js';
 import { createDeputado } from './deputado.js';
+import { createAuditoria } from './auditoria.js';
 
 (function(){
 'use strict';
@@ -74,6 +75,7 @@ DEP=createDeputado({BASE,AMB,CICLO,N,P,esc,num,title,UFNAME,UF2REG,REGION,MAP,S,
   estCd:async t=>(await loadEst())[t],estCdSaved:()=>ls.get('tse26_cd_est'),estCdSave:v=>ls.set('tse26_cd_est',v),
   requestRefresh:()=>DEP.refresh().then(()=>render()),onPrefs:()=>saveState()});
 
+let AUD=createAuditoria({N,P,esc,UFNAME,S,BASE,AMB,CICLO,getPleito,decodeBU,parseTs,nameOf,colorOf:n=>COL[String(n)]||'#8A93A1'});
 /* ---------- leitura dos arquivos ---------- */
 async function getJSON(u){
   const r=await fetch(u,{cache:'no-cache'});
@@ -124,7 +126,17 @@ function berParse(b,o,e){
   return out;
 }
 const be=v=>{let a=0;for(let i=0;i<v.length;i++)a=a*256+v[i];return a};
-/* devolve os votos de Presidente (cargo 1) de um boletim de urna: {v:{numero:votos}, vb, vn} */
+/* carimbos de data e hora dentro do BU (UTCTime, GeneralizedTime ou texto numérico): usados pela página Auditoria */
+function scanTimes(nodes,out){
+  for(const n of nodes){
+    if(n.cons){ scanTimes(n.c,out); continue; }
+    if(!n.v||n.v.length<12||n.v.length>30) continue;
+    let s=''; for(let i=0;i<n.v.length;i++){ const ch=n.v[i]; if(ch<32||ch>126){ s=''; break; } s+=String.fromCharCode(ch); }
+    if((/^\d{12,14}Z?$/.test(s)||/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}/.test(s))&&out.length<20&&!out.includes(s)) out.push(s);
+  }
+  return out;
+}
+/* devolve os votos de Presidente (cargo 1) de um boletim de urna: {v:{numero:votos}, vb, vn, ts} */
 function decodeBU(ab){
   const b=new Uint8Array(ab);
   const root=berParse(b,0,b.length)[0];
@@ -137,7 +149,7 @@ function decodeBU(ab){
     c.forEach(walk); };
   R.forEach(walk);
   if(!list) return null;
-  const o={v:{},vb:0,vn:0};
+  const o={v:{},vb:0,vn:0,ts:scanTimes(root.c.concat(R),[])};
   list.c.forEach(e=>{
     if(!e.cons) return;
     const tp=e.c.find(x=>x.cls===2&&x.tag===1&&!x.cons), q=e.c.find(x=>x.cls===2&&x.tag===2&&!x.cons), id=e.c.find(x=>x.cls===2&&x.tag===3&&x.cons);
@@ -380,14 +392,14 @@ function setLive(txt,on){
   $('#dot').className=c; $('#dot2').className=c;
 }
 
-const PAGES=['home','map','states','abroad','deputado'];
+const PAGES=['home','map','states','abroad','deputado','auditoria'];
 /* Governador e Senador sem estado escolhido: tela de quadro nacional (um cartão por UF) */
 const natMode=()=>S.cargo!=='pres'&&S.page!=='deputado'&&S.scope==='br';
 const isTop=()=>S.cargo==='pres'?isBR():(S.scope!=='br'&&!S.mun);
 function applyPage(){
   document.querySelectorAll('[data-page]').forEach(el=>{ el.hidden=el.dataset.page!==S.page; });
   const pend=S.missing[S.turno]&&!S.data[S.turno], nat=natMode();
-  $('#sumPanel').hidden=S.page==='deputado'||!(S.page==='home'||pend);
+  $('#sumPanel').hidden=S.page==='deputado'||S.page==='auditoria'||!(S.page==='home'||pend);
   if(S.page==='home'&&nat) ['duelPanel','candPanel','rankPanel'].forEach(id=>{ $('#'+id).hidden=true; });
   if(S.cargo!=='pres') $('#regPanel').hidden=true;
   $('#natPanel').hidden=!(S.page==='home'&&nat&&!pend&&S.data[S.turno]);
@@ -420,10 +432,10 @@ function setCargo(c){
   syncFilters(); render(); refresh();
 }
 function updateBrand(){
-  const dep=S.page==='deputado', nome=dep?'Deputado':CARGOS[S.cargo].nome;
-  const h1=document.querySelector('.brandbar h1'); if(h1) h1.textContent='Apuração · '+nome+' 2026';
+  const dep=S.page==='deputado', nome=dep?'Deputado':CARGOS[S.cargo].nome, aud=S.page==='auditoria';
+  const h1=document.querySelector('.brandbar h1'); if(h1) h1.textContent=aud?'Auditoria · Presidente 2026':'Apuração · '+nome+' 2026';
   const bm=document.querySelector('.brandm span'); if(bm) bm.innerHTML='Apuração<br>'+esc(nome)+' 2026';
-  document.title='Apuração '+nome+' 2026';
+  document.title=aud?'Auditoria 2026 · Presidente':'Apuração '+nome+' 2026';
   document.body.dataset.cg=S.cargo;
   [['cPres','pres'],['cGov','gov'],['cSen','sen']].forEach(([id,k])=>{ const b=document.getElementById(id); if(b) b.setAttribute('aria-pressed',S.cargo===k); });
   const t2=$('#t2'); if(t2) t2.hidden=S.cargo==='sen';
@@ -485,6 +497,13 @@ function render(){
     applyPage(); syncFilters();
     const n0=$('#notice'); n0.className='notice'; n0.innerHTML='';
     DEP.render(); const st=DEP.status(); setLive(st.txt+nextTxt(),st.on); return;
+  }
+  if(S.page==='auditoria'){
+    if(S.cargo!=='pres'){ setCargo('pres'); return; }           /* a auditoria é só do Presidente */
+    $('#t1').setAttribute('aria-pressed',S.turno===1); $('#t2').setAttribute('aria-pressed',S.turno===2);
+    $('#body').hidden=true; applyPage();
+    const n1=$('#notice'); n1.className='notice'; n1.innerHTML='';
+    AUD.render(); const st=AUD.status(); setLive(st.txt,st.on); return;
   }
   $('#t1').setAttribute('aria-pressed',S.turno===1); $('#t2').setAttribute('aria-pressed',S.turno===2);
   const n=$('#notice'),d=S.data[S.turno];
@@ -1068,6 +1087,7 @@ function clearAll(){ S.region='all'; S.scope='br'; S.mun=S.zon=S.sec=null; S.can
 /* ---------- atualização automática ---------- */
 function tickLabel(){
   if(S.page==='deputado'){ const st=DEP.status(); setLive(st.txt+nextTxt(),st.on); return; }
+  if(S.page==='auditoria'){ const st=AUD.status(); setLive(st.txt,st.on); return; }
   if(S.err) return;
   if(S.missing[S.turno]&&!S.data[S.turno]){ setLive('Aguardando o TSE'+nextTxt(),null); return; }
   const d=S.data[S.turno]; if(!d||!d.br) return;
@@ -1211,7 +1231,7 @@ window.addEventListener('hashchange',()=>{ const h=(location.hash||'').slice(1);
 updateBrand();
 applyPage();
 syncFilters();
-if(S.page==='deputado') render();
+if(S.page==='deputado'||S.page==='auditoria') render();
 $('#cfg').textContent=BASE()!==DEFAULT_BASE?'Origem dos dados personalizada: '+BASE():'';
 refresh();
 })();

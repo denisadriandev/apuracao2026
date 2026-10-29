@@ -9,10 +9,13 @@ index.html                 marcação da página
 src/
   main.js                  lógica do painel (leitura do TSE, filtros, gráficos, mapas)
   deputado.js              página Deputado (Federal e Estadual): leitura, cálculo das cadeiras e gráficos
+  auditoria.js             página Auditoria: coleta de boletins de urna, painéis e veredito
+  auditoria-stats.js       estatística da Auditoria (Benford, outliers locais, binomial, lacunas, veredito), sem DOM
   data/partidos.js         espectro político por partido, cores de partido e número de vagas por UF
   styles/main.css          estilos (temas claro e escuro, layout responsivo)
   data/brazil-map.js       malha SVG dos estados (@svg-maps/brazil, CC BY 4.0)
   data/world-map.js        mapa-múndi e tabela país → id (Natural Earth via world-atlas)
+tests/                     testes da estatística (npm test)
 vite.config.js             configuração do Vite
 vercel.json                configuração de deploy e cache
 ```
@@ -21,6 +24,18 @@ vercel.json                configuração de deploy e cache
 
 - **Urnas apuradas no mapa:** o interruptor "Urnas apuradas" (cabeçalho do mapa) mostra a % de seções totalizadas de cada estado. Cabe dentro dos estados grandes; nos pequenos vira uma etiqueta na margem direita.
 - **Filtros lembrados:** turno, região, estado, município, zona, seção, candidato, página, modo de exibição e interruptores ficam salvos no navegador (`localStorage`, chave `tse26_state_v1`). Ao atualizar a página, puxar para baixo no celular, fechar e reabrir, o painel volta como estava. O botão "Limpar" zera os filtros; um `#página` na URL tem prioridade sobre a página salva.
+
+## Auditoria
+
+Página `#auditoria` (só Presidente). Coleta uma amostra aleatória (semente fixa) de boletins de urna direto do TSE e aplica:
+
+1. **Horário estendido (17h–19h):** aritmética de influência máxima (votos após as 17h × margem). A divisão por intervalo só aparece se o BU trouxer um carimbo de horário reconhecível; biometria por seção não é lida (campo não identificado), e o teste fica "não avaliado".
+2. **Lacuna após a apuração:** horários de totalização de todas as seções (`-cs.json`), maior intervalo sem boletim e % totalizada em 24 h e 72 h. Não mede a disponibilidade do site do TSE.
+3. **Unanimidade e seções atípicas:** histograma de participação, contagem de seções ≥ 90–100%, z robusto dentro do município (mediana e MAD), teste do sinal e excesso estimado de votos; calculadora binomial.
+4. **Benford:** 1º e 2º dígitos (MAD de Nigrini, qui-quadrado), com comparação entre turnos.
+5. **Veredito:** calculado dos testes. Benford e desvios locais só viram "anomalia relevante" com referência (outro turno) ou peso na margem; sem isso ficam em "atenção".
+
+Limites: a amostra não detecta fraude pontual em poucas urnas; anomalia estatística não prova fraude nem lisura. O total de 34.393 votos após as 17h vem do levantamento do TSE divulgado em 28/10/2026 (`REF_17H` em `auditoria.js`).
 
 ## Cargos
 
